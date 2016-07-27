@@ -23,11 +23,14 @@ public class Main {
         File buildDir = options.hasArgument(projectFlag) ? new File(options.valueOf(projectFlag)) : new File("/Users/adam/gradle/projects/uber-test-app");
         File gradleInstallDir = options.hasArgument(gradleInstallFlag) ? new File(options.valueOf(gradleInstallFlag)) : null;
         boolean embedded = options.hasArgument(embeddedFlag);
+
         fetch(buildDir, gradleInstallDir, embedded);
         System.exit(0);
     }
 
     private static void fetch(File buildDir, File gradleInstallDir, boolean embedded) {
+        System.out.println("Fetching model for " + buildDir);
+
         long start = System.currentTimeMillis();
 
         GradleConnector gradleConnector = GradleConnector.newConnector();
