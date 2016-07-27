@@ -1,11 +1,7 @@
 package net.rubygrapefruit.test;
 
-import com.android.builder.model.AndroidProject;
-import com.android.builder.model.Dependencies;
-import com.android.builder.model.JavaLibrary;
-import com.android.builder.model.Variant;
+import com.android.builder.model.*;
 import org.gradle.tooling.*;
-import org.gradle.tooling.internal.connection.DefaultGradleConnection;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 import org.gradle.tooling.model.gradle.BasicGradleProject;
 import org.gradle.tooling.model.gradle.GradleBuild;
@@ -16,6 +12,7 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) {
         fetch();
+        System.exit(0);
     }
 
     private static void fetch() {
@@ -23,16 +20,19 @@ public class Main {
         long start = System.currentTimeMillis();
         GradleConnector gradleConnector = GradleConnector.newConnector();
         gradleConnector.forProjectDirectory(new File("/Users/adam/gradle/projects/uber-test-app"));
-        ((DefaultGradleConnector) gradleConnector).embedded(true);
+        ((DefaultGradleConnector) gradleConnector).embedded(false);
+        gradleConnector.useInstallation(new File("/Users/adam/gradle/current"));
         ProjectConnection connect = gradleConnector.connect();
         try {
             System.out.println("starting action:");
             BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
             modelBuilder.setStandardOutput(System.out);
             modelBuilder.setStandardError(System.err);
+            modelBuilder.withArguments("-Dcom.android.build.gradle.overrideVersionCheck=true");
+            modelBuilder.setJvmArguments("-Xmx7g");
             Map<String, AndroidProject> models = modelBuilder.run();
 
-            System.out.println("models: " + models.size());
+            System.out.println("Received models: " + models.size());
 
             dump(models);
         } finally {
@@ -44,9 +44,14 @@ public class Main {
     }
 
     private static void dump(Map<String, AndroidProject> models) {
-        Set<JavaLibrary> libsByEquality = new HashSet<>();
-        Map<File, JavaLibrary> libsByFile = new HashMap<>();
-        Map<JavaLibrary, JavaLibrary> libsByIdentity = new IdentityHashMap<>();
+        Set<JavaLibrary> javaLibsByEquality = new HashSet<>();
+        Map<File, JavaLibrary> javaLibsByFile = new HashMap<>();
+        Map<JavaLibrary, JavaLibrary> javaLibsByIdentity = new IdentityHashMap<>();
+
+        Set<AndroidLibrary> libsByEquality = new HashSet<>();
+        Map<File, AndroidLibrary> libsByFile = new HashMap<>();
+        Map<AndroidLibrary, AndroidLibrary> libsByIdentity = new IdentityHashMap<>();
+
         for (AndroidProject androidProject : models.values()) {
             if (androidProject == null) {
                 continue;
@@ -56,19 +61,27 @@ public class Main {
                 if (variant.getName().equals("debug")) {
                     Dependencies dependencies = variant.getMainArtifact().getDependencies();
                     System.out.println("android libs: " + dependencies.getLibraries().size());
+                    for (AndroidLibrary androidLibrary : dependencies.getLibraries()) {
+                        libsByEquality.add(androidLibrary);
+                        libsByFile.put(androidLibrary.getJarFile(), androidLibrary);
+                        libsByIdentity.put(androidLibrary, androidLibrary);
+                    }
                     System.out.println("java libs: " + dependencies.getJavaLibraries().size());
                     for (JavaLibrary javaLibrary : dependencies.getJavaLibraries()) {
-                        libsByEquality.add(javaLibrary);
-                        libsByFile.putIfAbsent(javaLibrary.getJarFile(), javaLibrary);
-                        libsByIdentity.putIfAbsent(javaLibrary, javaLibrary);
+                        javaLibsByEquality.add(javaLibrary);
+                        javaLibsByFile.putIfAbsent(javaLibrary.getJarFile(), javaLibrary);
+                        javaLibsByIdentity.putIfAbsent(javaLibrary, javaLibrary);
                     }
                 }
             }
         }
         System.out.println("---");
-        System.out.println("Libs: " + libsByFile.size());
-        System.out.println("Libs by file: " + libsByFile.size());
-        System.out.println("Libs by id: " + libsByIdentity.size());
+        System.out.println("Android libs: " + libsByEquality.size());
+        System.out.println("Android libs by file: " + libsByFile.size());
+        System.out.println("Android libs by id: " + libsByIdentity.size());
+        System.out.println("Java libs: " + javaLibsByEquality.size());
+        System.out.println("Java libs by file: " + javaLibsByFile.size());
+        System.out.println("Java libs by id: " + javaLibsByIdentity.size());
         System.out.println("---");
     }
 
