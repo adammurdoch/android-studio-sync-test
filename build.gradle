@@ -11,7 +11,8 @@ repositories {
 dependencies {
     compile "com.android.tools.build:gradle:2.2.0-alpha5"
     compile "org.gradle:gradle-tooling-api:latest.integration"
-    // Need an SLF4J implementation at runtime
+    compile 'net.sf.jopt-simple:jopt-simple:5.0.2'
+
     runtime 'org.slf4j:slf4j-simple:1.7.10'
 }
 

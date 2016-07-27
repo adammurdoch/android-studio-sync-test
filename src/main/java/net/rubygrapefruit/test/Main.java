@@ -1,6 +1,10 @@
 package net.rubygrapefruit.test;
 
 import com.android.builder.model.*;
+import joptsimple.ArgumentAcceptingOptionSpec;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+import joptsimple.OptionSpecBuilder;
 import org.gradle.tooling.*;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 import org.gradle.tooling.model.gradle.BasicGradleProject;
@@ -11,20 +15,31 @@ import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
-        fetch();
+        OptionParser parser = new OptionParser();
+        ArgumentAcceptingOptionSpec<String> projectFlag = parser.accepts("project").withRequiredArg();
+        ArgumentAcceptingOptionSpec<String> gradleInstallFlag = parser.accepts("gradle-install").withRequiredArg();
+        OptionSpecBuilder embeddedFlag = parser.accepts("embedded");
+        OptionSet options = parser.parse(args);
+        File buildDir = options.hasArgument(projectFlag) ? new File(options.valueOf(projectFlag)) : new File("/Users/adam/gradle/projects/uber-test-app");
+        File gradleInstallDir = options.hasArgument(gradleInstallFlag) ? new File(options.valueOf(gradleInstallFlag)) : null;
+        boolean embedded = options.hasArgument(embeddedFlag);
+        fetch(buildDir, gradleInstallDir, embedded);
         System.exit(0);
     }
 
-    private static void fetch() {
-        System.out.println();
+    private static void fetch(File buildDir, File gradleInstallDir, boolean embedded) {
         long start = System.currentTimeMillis();
+
         GradleConnector gradleConnector = GradleConnector.newConnector();
-        gradleConnector.forProjectDirectory(new File("/Users/adam/gradle/projects/uber-test-app"));
-        ((DefaultGradleConnector) gradleConnector).embedded(false);
-        gradleConnector.useInstallation(new File("/Users/adam/gradle/current"));
+        gradleConnector.forProjectDirectory(buildDir);
+        ((DefaultGradleConnector) gradleConnector).embedded(embedded);
+        if (gradleInstallDir != null) {
+            gradleConnector.useInstallation(gradleInstallDir);
+        }
+
         ProjectConnection connect = gradleConnector.connect();
         try {
-            System.out.println("starting action:");
+            System.out.println("running action:");
             BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
             modelBuilder.setStandardOutput(System.out);
             modelBuilder.setStandardError(System.err);
@@ -40,7 +55,6 @@ public class Main {
         }
         long end = System.currentTimeMillis();
         System.out.println("time: " + (end - start));
-        System.out.println();
     }
 
     private static void inspectModel(Map<String, AndroidProject> models) {
