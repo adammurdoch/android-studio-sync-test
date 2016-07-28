@@ -20,8 +20,10 @@ public class Main {
         ArgumentAcceptingOptionSpec<String> gradleInstallFlag = parser.accepts("gradle-install").withRequiredArg();
         OptionSpecBuilder embeddedFlag = parser.accepts("embedded");
         OptionSet options = parser.parse(args);
-        File buildDir = options.hasArgument(projectFlag) ? new File(options.valueOf(projectFlag)) : new File("/Users/adam/gradle/projects/uber-test-app");
-        File gradleInstallDir = options.hasArgument(gradleInstallFlag) ? new File(options.valueOf(gradleInstallFlag)) : null;
+        File buildDir = options.hasArgument(projectFlag) ? new File(options.valueOf(projectFlag)) : new File(
+                "/Users/adam/gradle/projects/uber-test-app");
+        File gradleInstallDir = options.hasArgument(gradleInstallFlag) ? new File(options.valueOf(gradleInstallFlag))
+                : null;
         boolean embedded = options.hasArgument(embeddedFlag);
 
         fetch(buildDir, gradleInstallDir, embedded);
@@ -46,13 +48,15 @@ public class Main {
             BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
             modelBuilder.setStandardOutput(System.out);
             modelBuilder.setStandardError(System.err);
-            modelBuilder.withArguments("-Dcom.android.build.gradle.overrideVersionCheck=true");
+            modelBuilder.withArguments("-Dcom.android.build.gradle.overrideVersionCheck=true",
+                    "-Pandroid.injected.build.model.only=true", "-Pandroid.injected.invoked.from.ide=true",
+                    "-Pandroid.injected.build.model.only.versioned=2");
             modelBuilder.setJvmArguments("-Xmx2g");
             Map<String, AndroidProject> models = modelBuilder.run();
 
             System.out.println("Received models: " + models.size());
 
-            inspectModel(models);
+            new Inspector().inspectModel(models);
         } finally {
             connect.close();
         }
@@ -60,7 +64,7 @@ public class Main {
         System.out.println("time: " + (end - start));
     }
 
-    private static void inspectModel(Map<String, AndroidProject> models) {
+    private static class Inspector {
         Set<JavaLibrary> javaLibsByEquality = new HashSet<>();
         Map<File, JavaLibrary> javaLibsByFile = new HashMap<>();
         Map<JavaLibrary, JavaLibrary> javaLibsByIdentity = new IdentityHashMap<>();
@@ -69,35 +73,63 @@ public class Main {
         Map<File, AndroidLibrary> libsByFile = new HashMap<>();
         Map<AndroidLibrary, AndroidLibrary> libsByIdentity = new IdentityHashMap<>();
 
-        for (AndroidProject androidProject : models.values()) {
-            if (androidProject == null) {
-                continue;
-            }
-            for (Variant variant : androidProject.getVariants()) {
-                System.out.println(androidProject.getName() + " " + variant.getName());
-                Dependencies dependencies = variant.getMainArtifact().getDependencies();
-                System.out.println("android libs: " + dependencies.getLibraries().size());
-                for (AndroidLibrary androidLibrary : dependencies.getLibraries()) {
-                    libsByEquality.add(androidLibrary);
-                    libsByFile.put(androidLibrary.getJarFile(), androidLibrary);
-                    libsByIdentity.put(androidLibrary, androidLibrary);
+        void inspectModel(Map<String, AndroidProject> models) {
+            for (AndroidProject androidProject : models.values()) {
+                if (androidProject == null) {
+                    continue;
                 }
-                System.out.println("java libs: " + dependencies.getJavaLibraries().size());
-                for (JavaLibrary javaLibrary : dependencies.getJavaLibraries()) {
-                    javaLibsByEquality.add(javaLibrary);
-                    javaLibsByFile.putIfAbsent(javaLibrary.getJarFile(), javaLibrary);
-                    javaLibsByIdentity.putIfAbsent(javaLibrary, javaLibrary);
+                inspect(androidProject);
+            }
+
+            System.out.println("---");
+            System.out.println("Android libs: " + libsByEquality.size());
+            System.out.println("Android libs by file: " + libsByFile.size());
+            System.out.println("Android libs by id: " + libsByIdentity.size());
+            System.out.println("Java libs: " + javaLibsByEquality.size());
+            System.out.println("Java libs by file: " + javaLibsByFile.size());
+            System.out.println("Java libs by id: " + javaLibsByIdentity.size());
+            System.out.println("---");
+        }
+
+        private void inspect(AndroidProject androidProject) {
+            for (Variant variant : androidProject.getVariants()) {
+                inspect(variant.getMainArtifact().getDependencies());
+                inspect(variant.getMainArtifact().getPackageDependencies());
+                for (AndroidArtifact otherArtifact : variant.getExtraAndroidArtifacts()) {
+                    inspect(otherArtifact.getDependencies());
                 }
             }
         }
-        System.out.println("---");
-        System.out.println("Android libs: " + libsByEquality.size());
-        System.out.println("Android libs by file: " + libsByFile.size());
-        System.out.println("Android libs by id: " + libsByIdentity.size());
-        System.out.println("Java libs: " + javaLibsByEquality.size());
-        System.out.println("Java libs by file: " + javaLibsByFile.size());
-        System.out.println("Java libs by id: " + javaLibsByIdentity.size());
-        System.out.println("---");
+
+        private void inspect(Dependencies dependencies) {
+            for (AndroidLibrary androidLibrary : dependencies.getLibraries()) {
+                inspect(androidLibrary);
+            }
+            for (JavaLibrary javaLibrary : dependencies.getJavaLibraries()) {
+                inspect(javaLibrary);
+            }
+        }
+
+        private void inspect(AndroidLibrary androidLibrary) {
+            libsByEquality.add(androidLibrary);
+            libsByFile.put(androidLibrary.getJarFile(), androidLibrary);
+            libsByIdentity.put(androidLibrary, androidLibrary);
+            for (AndroidLibrary library : androidLibrary.getLibraryDependencies()) {
+                inspect(library);
+            }
+            for (JavaLibrary library : androidLibrary.getJavaDependencies()) {
+                inspect(library);
+            }
+        }
+
+        private void inspect(JavaLibrary javaLibrary) {
+            javaLibsByEquality.add(javaLibrary);
+            javaLibsByFile.putIfAbsent(javaLibrary.getJarFile(), javaLibrary);
+            javaLibsByIdentity.putIfAbsent(javaLibrary, javaLibrary);
+            for (JavaLibrary library : javaLibrary.getDependencies()) {
+                inspect(library);
+            }
+        }
     }
 
     private static class GetModel implements BuildAction<Map<String, AndroidProject>> {
@@ -110,7 +142,7 @@ public class Main {
                 AndroidProject androidProject = controller.findModel(project, AndroidProject.class);
                 result.put(project.getPath(), androidProject);
             }
-            inspectModel(result);
+            new Inspector().inspectModel(result);
             return result;
         }
     }
