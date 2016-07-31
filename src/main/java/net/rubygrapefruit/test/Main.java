@@ -6,6 +6,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpecBuilder;
 import org.gradle.tooling.*;
+import org.gradle.tooling.internal.adapter.ProtocolToModelAdapter;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 import org.gradle.tooling.model.gradle.BasicGradleProject;
 import org.gradle.tooling.model.gradle.GradleBuild;
@@ -68,10 +69,12 @@ public class Main {
         Set<JavaLibrary> javaLibsByEquality = new HashSet<>();
         Map<File, JavaLibrary> javaLibsByFile = new HashMap<>();
         Map<JavaLibrary, JavaLibrary> javaLibsByIdentity = new IdentityHashMap<>();
+        Map<Object, Object> javaLibsBackingByIdentity = new IdentityHashMap<>();
 
         Set<AndroidLibrary> libsByEquality = new HashSet<>();
         Map<File, AndroidLibrary> libsByFile = new HashMap<>();
         Map<AndroidLibrary, AndroidLibrary> libsByIdentity = new IdentityHashMap<>();
+        Map<Object, Object> libsBackingByIdentity = new IdentityHashMap<>();
 
         void inspectModel(Map<String, AndroidProject> models) {
             for (AndroidProject androidProject : models.values()) {
@@ -85,9 +88,11 @@ public class Main {
             System.out.println("Android libs: " + libsByEquality.size());
             System.out.println("Android libs by file: " + libsByFile.size());
             System.out.println("Android libs by id: " + libsByIdentity.size());
+            System.out.println("Android libs by id (backing): " + libsBackingByIdentity.size());
             System.out.println("Java libs: " + javaLibsByEquality.size());
             System.out.println("Java libs by file: " + javaLibsByFile.size());
             System.out.println("Java libs by id: " + javaLibsByIdentity.size());
+            System.out.println("Java libs by id (backing): " + javaLibsBackingByIdentity.size());
             System.out.println("---");
         }
 
@@ -114,6 +119,7 @@ public class Main {
             libsByEquality.add(androidLibrary);
             libsByFile.put(androidLibrary.getJarFile(), androidLibrary);
             libsByIdentity.put(androidLibrary, androidLibrary);
+            unpack(androidLibrary, libsBackingByIdentity);
             for (AndroidLibrary library : androidLibrary.getLibraryDependencies()) {
                 inspect(library);
             }
@@ -126,9 +132,15 @@ public class Main {
             javaLibsByEquality.add(javaLibrary);
             javaLibsByFile.putIfAbsent(javaLibrary.getJarFile(), javaLibrary);
             javaLibsByIdentity.putIfAbsent(javaLibrary, javaLibrary);
+            unpack(javaLibrary, javaLibsBackingByIdentity);
             for (JavaLibrary library : javaLibrary.getDependencies()) {
                 inspect(library);
             }
+        }
+
+        private void unpack(Object library, Map<Object, Object> objectMap) {
+            Object unpacked = new ProtocolToModelAdapter().unpack(library);
+            objectMap.put(unpacked, unpacked);
         }
     }
 
