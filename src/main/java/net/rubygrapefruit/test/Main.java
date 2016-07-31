@@ -12,6 +12,7 @@ import org.gradle.tooling.model.gradle.BasicGradleProject;
 import org.gradle.tooling.model.gradle.GradleBuild;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.util.*;
 
 public class Main {
@@ -32,9 +33,9 @@ public class Main {
     }
 
     private static void fetch(File buildDir, File gradleInstallDir, boolean embedded) {
-        System.out.println("Fetching model for " + buildDir);
+        System.out.println("* Fetching model for " + buildDir);
 
-        long start = System.currentTimeMillis();
+        Timer timer = new Timer();
 
         GradleConnector gradleConnector = GradleConnector.newConnector();
         gradleConnector.forProjectDirectory(buildDir);
@@ -45,7 +46,8 @@ public class Main {
 
         ProjectConnection connect = gradleConnector.connect();
         try {
-            System.out.println("running action:");
+            System.out.println("* Running action");
+            Timer actionTimer = new Timer();
             BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
             modelBuilder.setStandardOutput(System.out);
             modelBuilder.setStandardError(System.err);
@@ -54,15 +56,17 @@ public class Main {
                     "-Pandroid.injected.build.model.only.versioned=2");
             modelBuilder.setJvmArguments("-Xmx2g");
             Map<String, AndroidProject> models = modelBuilder.run();
-
+            actionTimer.stop();
+            System.out.println("Running action took " + actionTimer.duration());
             System.out.println("Received models: " + models.size());
 
             new Inspector().inspectModel(models);
         } finally {
             connect.close();
         }
-        long end = System.currentTimeMillis();
-        System.out.println("time: " + (end - start));
+
+        timer.stop();
+        System.out.println("total time: " + timer.duration());
     }
 
     private static class Inspector {
@@ -77,12 +81,16 @@ public class Main {
         Map<Object, Object> libsBackingByIdentity = new IdentityHashMap<>();
 
         void inspectModel(Map<String, AndroidProject> models) {
+            System.out.println("* Inspecting");
+            Timer timer = new Timer();
             for (AndroidProject androidProject : models.values()) {
                 if (androidProject == null) {
                     continue;
                 }
                 inspect(androidProject);
             }
+            timer.stop();
+            System.out.println("Inspect took " + timer.duration());
 
             System.out.println("---");
             System.out.println("Android libs: " + libsByEquality.size());
@@ -147,15 +155,33 @@ public class Main {
     private static class GetModel implements BuildAction<Map<String, AndroidProject>> {
         @Override
         public Map<String, AndroidProject> execute(BuildController controller) {
-            System.out.println("fetching");
+            System.out.println("* Building models");
+            Timer timer = new Timer();
             GradleBuild build = controller.getBuildModel();
             Map<String, AndroidProject> result = new TreeMap<>();
             for (BasicGradleProject project : build.getProjects()) {
                 AndroidProject androidProject = controller.findModel(project, AndroidProject.class);
                 result.put(project.getPath(), androidProject);
             }
+            timer.stop();
+            System.out.println("building models took " + timer.duration());
+
             new Inspector().inspectModel(result);
             return result;
+        }
+    }
+
+    static class Timer {
+        final long startTime = System.nanoTime();
+        private long endTime;
+
+        Timer stop() {
+            endTime = System.nanoTime();
+            return this;
+        }
+
+        String duration() {
+            return BigDecimal.valueOf(endTime-startTime, 9) + "s";
         }
     }
 }
