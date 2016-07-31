@@ -10,6 +10,7 @@ import org.gradle.tooling.internal.adapter.ProtocolToModelAdapter;
 import org.gradle.tooling.internal.consumer.DefaultGradleConnector;
 import org.gradle.tooling.model.gradle.BasicGradleProject;
 import org.gradle.tooling.model.gradle.GradleBuild;
+import org.gradle.util.GradleVersion;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -34,6 +35,7 @@ public class Main {
 
     private static void fetch(File buildDir, File gradleInstallDir, boolean embedded) {
         System.out.println("* Fetching model for " + buildDir);
+        System.out.println("* Using tooling API " + GradleVersion.current().getVersion());
 
         Timer timer = new Timer();
 
