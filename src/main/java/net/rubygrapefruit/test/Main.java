@@ -54,36 +54,43 @@ public class Main {
 
         ProjectConnection connect = gradleConnector.connect();
         try {
-            System.out.println("* Running sync");
-
-            Timer syncTimer = new Timer();
-
-            BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
-            modelBuilder.setStandardOutput(System.out);
-            modelBuilder.setStandardError(System.err);
-            modelBuilder.withArguments("-Dcom.android.build.gradle.overrideVersionCheck=true",
-                    "-Pandroid.injected.build.model.only=true",
-                    "-Pandroid.injected.invoked.from.ide=true",
-                    "-Pandroid.injected.build.model.only.versioned=2");
-            modelBuilder.setJvmArguments("-Xmx2g");
-
-            Timer actionTimer = new Timer();
-            Map<String, AndroidProject> models = modelBuilder.run();
-            actionTimer.stop();
-            System.out.println("Running action took " + actionTimer.duration());
-
-            System.out.println("Received models: " + models.size());
-
-            new Inspector().inspectModel(models);
-            syncTimer.stop();
-            System.out.println("Sync took " + syncTimer.duration());
-
+            sync(connect);
+            sync(connect);
+            sync(connect);
+            sync(connect);
+            sync(connect);
         } finally {
             connect.close();
         }
 
         timer.stop();
         System.out.println("total time: " + timer.duration());
+    }
+
+    private static void sync(ProjectConnection connect) {
+        System.out.println("* Running sync");
+
+        Timer syncTimer = new Timer();
+
+        BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
+        modelBuilder.setStandardOutput(System.out);
+        modelBuilder.setStandardError(System.err);
+        modelBuilder.withArguments("-Dcom.android.build.gradle.overrideVersionCheck=true",
+                "-Pandroid.injected.build.model.only=true",
+                "-Pandroid.injected.invoked.from.ide=true",
+                "-Pandroid.injected.build.model.only.versioned=2");
+        modelBuilder.setJvmArguments("-Xmx2g");
+
+        Timer actionTimer = new Timer();
+        Map<String, AndroidProject> models = modelBuilder.run();
+        actionTimer.stop();
+        System.out.println("Running action took " + actionTimer.duration());
+
+        System.out.println("Received models: " + models.size());
+
+        new Inspector().inspectModel(models);
+        syncTimer.stop();
+        System.out.println("Sync took " + syncTimer.duration());
     }
 
     private static class Inspector {
