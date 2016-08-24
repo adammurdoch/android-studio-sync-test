@@ -54,8 +54,10 @@ public class Main {
 
         ProjectConnection connect = gradleConnector.connect();
         try {
-            System.out.println("* Running action");
-            Timer actionTimer = new Timer();
+            System.out.println("* Running sync");
+
+            Timer syncTimer = new Timer();
+
             BuildActionExecuter<Map<String, AndroidProject>> modelBuilder = connect.action(new GetModel());
             modelBuilder.setStandardOutput(System.out);
             modelBuilder.setStandardError(System.err);
@@ -64,12 +66,18 @@ public class Main {
                     "-Pandroid.injected.invoked.from.ide=true",
                     "-Pandroid.injected.build.model.only.versioned=2");
             modelBuilder.setJvmArguments("-Xmx2g");
+
+            Timer actionTimer = new Timer();
             Map<String, AndroidProject> models = modelBuilder.run();
             actionTimer.stop();
             System.out.println("Running action took " + actionTimer.duration());
+
             System.out.println("Received models: " + models.size());
 
             new Inspector().inspectModel(models);
+            syncTimer.stop();
+            System.out.println("Sync took " + syncTimer.duration());
+
         } finally {
             connect.close();
         }
