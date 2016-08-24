@@ -4,12 +4,15 @@ plugins {
 }
 
 repositories {
-    maven { url file("/Users/Adam/gradle/gradle/build/repo") }
+//    maven { url file("/Users/Adam/gradle/projects/gradle-release/build/repo") }
+//    maven { url file("/Users/Adam/gradle/gradle/build/repo") }
+    maven { url 'https://repo.gradle.org/gradle/libs-releases' }
+    maven { url 'https://repo.gradle.org/gradle/libs-snapshots' }
     jcenter()
 }
 
 dependencies {
-    compile "com.android.tools.build:gradle:2.2.0-alpha5"
+    compile "com.android.tools.build:gradle:2.2.0-beta2"
     compile "org.gradle:gradle-tooling-api:latest.integration"
     compile 'net.sf.jopt-simple:jopt-simple:5.0.2'
 
