@@ -13,20 +13,26 @@ import org.gradle.tooling.model.gradle.GradleBuild;
 import org.gradle.util.GradleVersion;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         OptionParser parser = new OptionParser();
-        ArgumentAcceptingOptionSpec<String> projectFlag = parser.accepts("project").withRequiredArg();
-        ArgumentAcceptingOptionSpec<String> gradleInstallFlag = parser.accepts("gradle-install").withRequiredArg();
-        OptionSpecBuilder embeddedFlag = parser.accepts("embedded");
+        ArgumentAcceptingOptionSpec<String> projectFlag = parser.accepts("project-dir", "Gradle project directory").withRequiredArg();
+        ArgumentAcceptingOptionSpec<String> gradleInstallFlag = parser.accepts("gradle-install", "Gradle installation to run the build with").withRequiredArg();
+        OptionSpecBuilder embeddedFlag = parser.accepts("embedded", "Run build in-process");
         OptionSet options = parser.parse(args);
-        File buildDir = options.hasArgument(projectFlag) ? new File(options.valueOf(projectFlag)) : new File(
-                "/Users/adam/gradle/projects/uber-test-app");
-        File gradleInstallDir = options.hasArgument(gradleInstallFlag) ? new File(options.valueOf(gradleInstallFlag))
-                : null;
+        if (!options.has(projectFlag)) {
+            System.out.println("No project directory specified.");
+            System.out.println();
+            parser.printHelpOn(System.out);
+            return;
+        }
+
+        File buildDir = new File(options.valueOf(projectFlag));
+        File gradleInstallDir = options.hasArgument(gradleInstallFlag) ? new File(options.valueOf(gradleInstallFlag)) : null;
         boolean embedded = options.hasArgument(embeddedFlag);
 
         fetch(buildDir, gradleInstallDir, embedded);
@@ -54,7 +60,8 @@ public class Main {
             modelBuilder.setStandardOutput(System.out);
             modelBuilder.setStandardError(System.err);
             modelBuilder.withArguments("-Dcom.android.build.gradle.overrideVersionCheck=true",
-                    "-Pandroid.injected.build.model.only=true", "-Pandroid.injected.invoked.from.ide=true",
+                    "-Pandroid.injected.build.model.only=true",
+                    "-Pandroid.injected.invoked.from.ide=true",
                     "-Pandroid.injected.build.model.only.versioned=2");
             modelBuilder.setJvmArguments("-Xmx2g");
             Map<String, AndroidProject> models = modelBuilder.run();
@@ -168,7 +175,7 @@ public class Main {
             timer.stop();
             System.out.println("building models took " + timer.duration());
 
-            new Inspector().inspectModel(result);
+//            new Inspector().inspectModel(result);
             return result;
         }
     }
